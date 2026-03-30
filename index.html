@@ -815,32 +815,76 @@ function endGame(){
 }
 
 // ==================== CONTROLS ====================
-function addBtn(id,fn){
-    const el=document.getElementById(id);
-    el.addEventListener('touchstart',e=>{e.preventDefault();fn();});
-    el.addEventListener('click',fn);
-}
-addBtn('btn-left',moveLeft);addBtn('btn-right',moveRight);addBtn('btn-rotate',rotate);
-addBtn('btn-down',moveDown);addBtn('btn-drop',hardDrop);addBtn('btn-hold',holdCurrentPiece);addBtn('btn-pause',togglePause);
+// DAS (Delayed Auto Shift) system - fast & responsive like real Tetris
+const DAS_DELAY = 120;  // ms before auto-repeat starts
+const ARR_SPEED = 30;   // ms between repeats (very fast)
 
-// Long press
-function addLong(id,fn){
-    const el=document.getElementById(id);let iv=null;
-    const start=()=>{if(iv)return;fn();iv=setInterval(fn,75);};
-    const stop=()=>{clearInterval(iv);iv=null;};
-    el.addEventListener('touchstart',e=>{e.preventDefault();start();});
-    el.addEventListener('touchend',stop);el.addEventListener('touchcancel',stop);
-}
-addLong('btn-left',moveLeft);addLong('btn-right',moveRight);addLong('btn-down',moveDown);
+function addTouch(id, fn, repeat) {
+    const el = document.getElementById(id);
+    let dasTimer = null, arrTimer = null, active = false;
 
-// Keyboard
-document.addEventListener('keydown',e=>{
-    if(e.key==='p'||e.key==='Escape'){togglePause();return;}
-    if(e.key==='c'||e.key==='C'){holdCurrentPiece();return;}
-    switch(e.key){
-        case'ArrowLeft':moveLeft();break;case'ArrowRight':moveRight();break;
-        case'ArrowDown':moveDown();break;case'ArrowUp':rotate();break;
-        case' ':e.preventDefault();hardDrop();break;
+    const stop = () => {
+        active = false;
+        clearTimeout(dasTimer); clearInterval(arrTimer);
+        dasTimer = null; arrTimer = null;
+    };
+
+    const start = () => {
+        if (active) return;
+        active = true;
+        fn(); // instant first move
+        if (repeat) {
+            dasTimer = setTimeout(() => {
+                fn(); // fire once at DAS threshold
+                arrTimer = setInterval(fn, ARR_SPEED); // then rapid repeat
+            }, DAS_DELAY);
+        }
+    };
+
+    el.addEventListener('touchstart', e => { e.preventDefault(); start(); }, { passive: false });
+    el.addEventListener('touchend', e => { e.preventDefault(); stop(); }, { passive: false });
+    el.addEventListener('touchcancel', stop);
+    // Mouse fallback for desktop
+    el.addEventListener('mousedown', e => { e.preventDefault(); start(); });
+    el.addEventListener('mouseup', stop);
+    el.addEventListener('mouseleave', stop);
+}
+
+addTouch('btn-left', moveLeft, true);
+addTouch('btn-right', moveRight, true);
+addTouch('btn-down', moveDown, true);
+addTouch('btn-rotate', rotate, false);
+addTouch('btn-drop', hardDrop, false);
+addTouch('btn-hold', holdCurrentPiece, false);
+addTouch('btn-pause', togglePause, false);
+
+// Keyboard with DAS/ARR
+const keyState = {};
+const keyMap = { ArrowLeft: moveLeft, ArrowRight: moveRight, ArrowDown: moveDown };
+
+document.addEventListener('keydown', e => {
+    if (e.repeat && (e.key in keyMap)) return; // we handle repeat ourselves
+    if (e.key === 'p' || e.key === 'Escape') { togglePause(); return; }
+    if (e.key === 'c' || e.key === 'C') { holdCurrentPiece(); return; }
+    if (e.key === 'ArrowUp') { rotate(); return; }
+    if (e.key === ' ') { e.preventDefault(); hardDrop(); return; }
+
+    const fn = keyMap[e.key];
+    if (fn && !keyState[e.key]) {
+        keyState[e.key] = true;
+        fn();
+        keyState[e.key + '_das'] = setTimeout(() => {
+            fn();
+            keyState[e.key + '_arr'] = setInterval(fn, ARR_SPEED);
+        }, DAS_DELAY);
+    }
+});
+
+document.addEventListener('keyup', e => {
+    if (keyState[e.key]) {
+        keyState[e.key] = false;
+        clearTimeout(keyState[e.key + '_das']);
+        clearInterval(keyState[e.key + '_arr']);
     }
 });
 
