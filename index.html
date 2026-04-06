@@ -954,9 +954,20 @@ if(highScore>0){document.getElementById('high-score-start').style.display='';doc
 // Initial resize
 resizeCanvas();
 
-// PWA Service Worker
+// PWA Service Worker - otomatik güncelleme
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('./sw.js');
+  navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' })
+    .then(reg => {
+      reg.addEventListener('updatefound', () => {
+        const nw = reg.installing;
+        nw.addEventListener('statechange', () => {
+          if (nw.state === 'activated') window.location.reload();
+        });
+      });
+    });
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    window.location.reload();
+  });
 }
 </script>
 </body>
