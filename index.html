@@ -793,7 +793,8 @@ function updateUI(){
     document.getElementById('score').textContent=score.toLocaleString();
     document.getElementById('level').textContent=level;
     document.getElementById('lines').textContent=lines;
-    document.getElementById('combo').textContent=combo;
+    const comboEl=document.getElementById('combo');
+    if(comboEl)comboEl.textContent=combo;
 }
 
 // ==================== RESIZE CANVAS TO FIT ====================
